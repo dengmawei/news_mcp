@@ -2,3 +2,4 @@ node_modules/
 dist/
 prisma/*.db
 tsconfig.json
+logs/

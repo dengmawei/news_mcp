@@ -12,6 +12,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:persistence": "node scripts/test-persistence.js",
+    "test:ai": "node scripts/test-ai-service.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -35,7 +36,8 @@
     "rss-parser": "^3.13.0",
     "dotenv": "^16.3.1",
     "ioredis": "^5.3.2",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "openai": "^4.20.0"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",

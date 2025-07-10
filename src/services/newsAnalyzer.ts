@@ -2,6 +2,7 @@ import { NewsItem } from './newsService.js';
 import { NewsAggregator } from './newsAggregator.js';
 import { DatabaseService } from './databaseService.js';
 import { LoggerService } from './loggerService.js';
+import { AIService } from './aiService.js';
 
 export interface NewsSummary {
   id: string;
@@ -40,11 +41,13 @@ export class NewsAnalyzer {
   private newsAggregator: NewsAggregator;
   private databaseService: DatabaseService;
   private logger: LoggerService;
+  private aiService: AIService;
 
   constructor() {
     this.newsAggregator = new NewsAggregator();
     this.databaseService = new DatabaseService();
     this.logger = new LoggerService();
+    this.aiService = new AIService();
   }
 
   async getNewsSummary(newsId: string, includeKeyPoints: boolean = true): Promise<NewsSummary> {
@@ -111,6 +114,17 @@ export class NewsAnalyzer {
         return this.getEmptyTrendAnalysis(timeframe);
       }
       
+      // 使用AI服务进行趋势分析
+      const aiTrends = await this.aiService.analyzeTrends({
+        newsData: filteredNews.map(item => ({
+          title: item.title,
+          description: item.description,
+          tags: item.tags,
+          publishedAt: item.publishedAt
+        })),
+        timeframe
+      });
+      
       // 分析热门话题
       const topTopics = this.analyzeTopTopics(filteredNews);
       
@@ -120,22 +134,20 @@ export class NewsAnalyzer {
       // 分析情感分布
       const sentimentDistribution = this.analyzeSentimentDistribution(filteredNews);
       
-      // 识别新兴和衰退话题
-      const { emergingTopics, decliningTopics } = this.identifyTopicTrends(filteredNews, timeframe);
-      
       const analysis: TrendAnalysis = {
         timeframe,
         topTopics,
         topSources,
         sentimentDistribution,
-        emergingTopics,
-        decliningTopics
+        emergingTopics: aiTrends.emergingTopics,
+        decliningTopics: aiTrends.decliningTopics
       };
 
       this.logger.info('AI趋势分析完成', { 
         timeframe, 
         newsCount: filteredNews.length,
-        topTopicsCount: topTopics.length 
+        topTopicsCount: topTopics.length,
+        aiEnabled: this.aiService.isAIServiceEnabled()
       });
 
       return analysis;
@@ -146,108 +158,25 @@ export class NewsAnalyzer {
   }
 
   private async generateSummary(news: NewsItem, includeKeyPoints: boolean): Promise<NewsSummary> {
-    // 这里可以集成OpenAI API来生成更智能的摘要
-    // 目前使用简单的规则基础摘要
-    
-    const summary = this.extractSummary(news);
-    const keyPoints = includeKeyPoints ? this.extractKeyPoints(news) : [];
-    const sentiment = this.analyzeSentiment(news);
-    const impact = this.assessImpact(news);
-    const relatedTopics = this.extractRelatedTopics(news);
+    // 使用AI服务生成智能摘要
+    const aiSummary = await this.aiService.generateNewsSummary({
+      title: news.title,
+      content: news.content || '',
+      description: news.description,
+      includeKeyPoints
+    });
 
     return {
       id: news.id,
       title: news.title,
-      summary,
-      keyPoints,
-      sentiment,
-      impact,
-      relatedTopics,
+      summary: aiSummary.summary,
+      keyPoints: aiSummary.keyPoints,
+      sentiment: aiSummary.sentiment,
+      impact: aiSummary.impact,
+      relatedTopics: aiSummary.relatedTopics,
       source: news.source,
       publishedAt: news.publishedAt
     };
-  }
-
-  private extractSummary(news: NewsItem): string {
-    // 简单的摘要提取逻辑
-    const sentences = news.description.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    if (sentences.length >= 2) {
-      return sentences.slice(0, 2).join('. ') + '.';
-    }
-    return news.description;
-  }
-
-  private extractKeyPoints(news: NewsItem): string[] {
-    const keyPoints: string[] = [];
-    
-    // 从标题和描述中提取关键信息
-    const text = `${news.title} ${news.description}`.toLowerCase();
-    
-    // 检测技术名称
-    const techTerms = ['gpt', 'llm', 'neural network', 'machine learning', 'deep learning'];
-    techTerms.forEach(term => {
-      if (text.includes(term)) {
-        keyPoints.push(`涉及${term}技术`);
-      }
-    });
-    
-    // 检测公司名称
-    const companies = ['openai', 'google', 'microsoft', 'meta', 'anthropic'];
-    companies.forEach(company => {
-      if (text.includes(company)) {
-        keyPoints.push(`${company}相关新闻`);
-      }
-    });
-    
-    // 检测产品发布
-    if (text.includes('release') || text.includes('launch') || text.includes('announce')) {
-      keyPoints.push('新产品发布');
-    }
-    
-    return keyPoints.length > 0 ? keyPoints : ['AI技术发展相关'];
-  }
-
-  private analyzeSentiment(news: NewsItem): 'positive' | 'negative' | 'neutral' {
-    const text = `${news.title} ${news.description}`.toLowerCase();
-    
-    const positiveWords = ['breakthrough', 'improve', 'advance', 'success', 'innovative', 'revolutionary'];
-    const negativeWords = ['problem', 'issue', 'concern', 'risk', 'threat', 'failure'];
-    
-    let positiveScore = 0;
-    let negativeScore = 0;
-    
-    positiveWords.forEach(word => {
-      if (text.includes(word)) positiveScore++;
-    });
-    
-    negativeWords.forEach(word => {
-      if (text.includes(word)) negativeScore++;
-    });
-    
-    if (positiveScore > negativeScore) return 'positive';
-    if (negativeScore > positiveScore) return 'negative';
-    return 'neutral';
-  }
-
-  private assessImpact(news: NewsItem): 'high' | 'medium' | 'low' {
-    const text = `${news.title} ${news.description}`.toLowerCase();
-    
-    const highImpactWords = ['breakthrough', 'revolutionary', 'game-changing', 'major', 'significant'];
-    const mediumImpactWords = ['new', 'update', 'improve', 'enhance', 'release'];
-    
-    for (const word of highImpactWords) {
-      if (text.includes(word)) return 'high';
-    }
-    
-    for (const word of mediumImpactWords) {
-      if (text.includes(word)) return 'medium';
-    }
-    
-    return 'low';
-  }
-
-  private extractRelatedTopics(news: NewsItem): string[] {
-    return news.tags.slice(0, 5); // 返回前5个标签作为相关话题
   }
 
   private filterNewsByTimeframe(news: NewsItem[], timeframe: string): NewsItem[] {
@@ -329,44 +258,26 @@ export class NewsAnalyzer {
     return distribution;
   }
 
-  private identifyTopicTrends(news: NewsItem[], timeframe: string): { emergingTopics: string[]; decliningTopics: string[] } {
-    // 这里可以实现更复杂的趋势分析算法
-    // 目前基于简单的频率分析
+  private analyzeSentiment(news: NewsItem): 'positive' | 'negative' | 'neutral' {
+    const text = `${news.title} ${news.description}`.toLowerCase();
     
-    const tagCount: { [key: string]: number } = {};
-    const recentTagCount: { [key: string]: number } = {};
+    const positiveWords = ['breakthrough', 'improve', 'advance', 'success', 'innovative', 'revolutionary'];
+    const negativeWords = ['problem', 'issue', 'concern', 'risk', 'threat', 'failure'];
     
-    const now = new Date();
-    const recentCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 最近7天
+    let positiveScore = 0;
+    let negativeScore = 0;
     
-    news.forEach(item => {
-      item.tags.forEach(tag => {
-        tagCount[tag] = (tagCount[tag] || 0) + 1;
-        
-        if (item.publishedAt >= recentCutoff) {
-          recentTagCount[tag] = (recentTagCount[tag] || 0) + 1;
-        }
-      });
+    positiveWords.forEach(word => {
+      if (text.includes(word)) positiveScore++;
     });
     
-    const emergingTopics: string[] = [];
-    const decliningTopics: string[] = [];
-    
-    Object.entries(tagCount).forEach(([tag, totalCount]) => {
-      const recentCount = recentTagCount[tag] || 0;
-      const recentRatio = recentCount / totalCount;
-      
-      if (recentRatio > 0.4) {
-        emergingTopics.push(tag);
-      } else if (recentRatio < 0.1 && totalCount > 2) {
-        decliningTopics.push(tag);
-      }
+    negativeWords.forEach(word => {
+      if (text.includes(word)) negativeScore++;
     });
     
-    return {
-      emergingTopics: emergingTopics.slice(0, 5),
-      decliningTopics: decliningTopics.slice(0, 5)
-    };
+    if (positiveScore > negativeScore) return 'positive';
+    if (negativeScore > positiveScore) return 'negative';
+    return 'neutral';
   }
 
   private determineTrend(topic: string, news: NewsItem[]): string {
@@ -401,6 +312,14 @@ export class NewsAnalyzer {
       emergingTopics: [],
       decliningTopics: []
     };
+  }
+
+  async testAIService(): Promise<boolean> {
+    return await this.aiService.testConnection();
+  }
+
+  isAIServiceEnabled(): boolean {
+    return this.aiService.isAIServiceEnabled();
   }
 
   async disconnect(): Promise<void> {
