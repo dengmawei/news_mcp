@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  ai-news-mcp:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data  # SQLite数据库文件目录
+    networks:
+      - ai-news-network
+
+  # Redis缓存服务（可选）
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ai-news-network
+
+volumes:
+  redis_data:
+
+networks:
+  ai-news-network:
+    driver: bridge 
