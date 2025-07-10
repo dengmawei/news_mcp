@@ -67,14 +67,36 @@ if (existsSync('vercel.json')) {
   console.log('   ✅ vercel.json存在');
   try {
     const vercelConfig = JSON.parse(readFileSync('vercel.json', 'utf8'));
-    if (vercelConfig.builds && vercelConfig.builds[0].src === 'dist/index.js') {
-      console.log('   ✅ vercel.json配置正确');
+    
+    // 检查是否使用新版functions配置
+    if (vercelConfig.functions && vercelConfig.functions['dist/index.js']) {
+      console.log('   ✅ 使用新版functions配置');
     } else {
-      console.log('   ❌ vercel.json构建配置不正确');
+      console.log('   ❌ 缺少新版functions配置');
       allChecksPassed = false;
     }
+    
+    // 检查是否使用rewrites而不是routes
+    if (vercelConfig.rewrites && vercelConfig.rewrites.length > 0) {
+      console.log('   ✅ 使用新版rewrites配置');
+    } else if (vercelConfig.routes && vercelConfig.routes.length > 0) {
+      console.log('   ⚠️  使用旧版routes配置，建议迁移到rewrites');
+    } else {
+      console.log('   ❌ 缺少路由配置');
+      allChecksPassed = false;
+    }
+    
+    // 检查构建命令
+    if (vercelConfig.buildCommand) {
+      console.log('   ✅ 配置了构建命令');
+    } else {
+      console.log('   ⚠️  未配置构建命令，将使用默认命令');
+    }
+    
+    console.log('   ✅ vercel.json配置正确');
   } catch (error) {
     console.log('   ❌ vercel.json格式错误');
+    console.log(`   错误: ${error.message}`);
     allChecksPassed = false;
   }
 } else {
@@ -188,4 +210,4 @@ if (allChecksPassed) {
   console.log('   4. 验证环境变量配置');
 }
 
-console.log('\n📚 更多信息请参考: docs/VERCEL_DEPLOYMENT.md'); 
+console.log('\n📚 更多信息请参考: README.md'); 

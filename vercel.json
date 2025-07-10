@@ -1,23 +1,21 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node"
+  "functions": {
+    "dist/index.js": {
+      "maxDuration": 30,
+      "memory": 1024
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
+      "source": "/(.*)",
+      "destination": "/dist/index.js"
     }
   ],
   "env": {
     "NODE_ENV": "production"
   },
-  "functions": {
-    "dist/index.js": {
-      "maxDuration": 30
-    }
-  }
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install"
 } 
