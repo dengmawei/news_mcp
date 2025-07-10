@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "vercel-build": "npm run db:generate && tsc && node scripts/copy-api.js",
+    "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json && node scripts/copy-api.js",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "jest",

@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "checkJs": false,
+    "noEmitOnError": false,
+    "skipLibCheck": true,
+    "rootDir": "./"
+  },
+  "include": [
+    "src/**/*.ts",
+    "api/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.js",
+    "**/*.jsx",
+    "dist/**/*",
+    "examples/**/*",
+    "scripts/**/*"
+  ]
+} 
