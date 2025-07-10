@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model NewsSource {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  url        String
+  type       String   // rss, api, scrape
+  category   String
+  language   String   @default("en")
+  isActive   Boolean  @default(true)
+  lastUpdate DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // 关联新闻
+  news NewsItem[]
+
+  @@map("news_sources")
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String?
+  url         String   @unique
+  sourceId    String
+  source      NewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  publishedAt DateTime
+  category    String
+  tags        String   // SQLite不支持数组，使用JSON字符串存储
+  imageUrl    String?
+  author      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联摘要
+  summary NewsSummary?
+
+  @@map("news_items")
+}
+
+model NewsSummary {
+  id            String   @id @default(cuid())
+  newsId        String   @unique
+  news          NewsItem @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  summary       String
+  keyPoints     String   // JSON字符串存储
+  sentiment     String   // positive, negative, neutral
+  impact        String   // high, medium, low
+  relatedTopics String   // JSON字符串存储
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("news_summaries")
+}
+
+model CacheEntry {
+  key       String   @id
+  value     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("cache_entries")
+} 
