@@ -2,7 +2,7 @@
 
 ## 概述
 
-本项目集成了OpenAI API，提供智能新闻分析和摘要生成功能。当OpenAI API可用时，系统会使用AI进行深度分析；当API不可用时，会自动降级到规则基础分析。
+本项目支持多种AI服务提供商，包括DeepSeek和OpenAI，提供智能新闻分析和摘要生成功能。系统会优先使用DeepSeek API，如果未配置则使用OpenAI API，当两者都不可用时，会自动降级到规则基础分析。
 
 ## 功能特性
 
@@ -25,20 +25,34 @@
 
 ### 1. 环境变量配置
 
-在 `.env` 文件中添加OpenAI API密钥：
+在 `.env` 文件中配置AI服务API密钥：
 
 ```bash
-# OpenAI API配置（用于智能摘要生成）
+# AI服务配置（优先使用DeepSeek，其次使用OpenAI）
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-### 2. 获取OpenAI API密钥
+### 2. 获取API密钥
 
+#### DeepSeek API密钥
+1. 访问 [DeepSeek官网](https://platform.deepseek.com/)
+2. 注册或登录账户
+3. 进入API Keys页面
+4. 创建新的API密钥
+5. 复制密钥到 `.env` 文件
+
+#### OpenAI API密钥
 1. 访问 [OpenAI官网](https://platform.openai.com/)
 2. 注册或登录账户
 3. 进入API Keys页面
 4. 创建新的API密钥
 5. 复制密钥到 `.env` 文件
+
+### 3. 优先级说明
+- 系统会优先检查 `DEEPSEEK_API_KEY`
+- 如果DeepSeek未配置，则使用 `OPENAI_API_KEY`
+- 如果两者都未配置，则使用规则基础分析
 
 ## 使用方法
 
@@ -58,7 +72,11 @@ const aiService = new AIService();
 
 // 检查AI服务状态
 if (aiService.isAIServiceEnabled()) {
-  console.log('AI服务已启用');
+  if (aiService.isDeepSeekService()) {
+    console.log('DeepSeek服务已启用');
+  } else {
+    console.log('OpenAI服务已启用');
+  }
 } else {
   console.log('AI服务未启用，将使用规则基础分析');
 }
@@ -125,9 +143,21 @@ interface AITrendAnalysisResponse {
 }
 ```
 
+## 模型配置
+
+### DeepSeek模型
+- 默认模型：`deepseek-chat`
+- 支持的功能：聊天对话、文本生成、分析推理
+- API端点：`https://api.deepseek.com/v1`
+
+### OpenAI模型
+- 默认模型：`gpt-3.5-turbo`
+- 支持的功能：聊天对话、文本生成、分析推理
+- API端点：`https://api.openai.com/v1`
+
 ## 降级机制
 
-当OpenAI API不可用时，系统会自动降级到规则基础分析：
+当AI API不可用时，系统会自动降级到规则基础分析：
 
 ### 规则基础摘要生成
 - 基于关键词的情感分析
@@ -162,12 +192,12 @@ interface AITrendAnalysisResponse {
 ### 1. 日志监控
 ```bash
 # 查看AI服务日志
-tail -f logs/app.log | grep "AI"
+tail -f logs/app.log | grep "AI\|DeepSeek\|OpenAI"
 ```
 
 ### 2. 连接测试
 ```bash
-# 测试OpenAI连接
+# 测试AI服务连接
 npm run test:ai
 ```
 
@@ -217,6 +247,11 @@ npm run test:ai
    - 验证JSON响应格式
    - 查看错误日志
 
+4. **模型不可用**
+   - 确认模型名称正确
+   - 检查API版本兼容性
+   - 验证账户权限
+
 ### 调试步骤
 
 1. 运行AI服务测试
@@ -227,7 +262,11 @@ npm run test:ai
 
 ## 更新日志
 
+- **v1.1.0**: 添加DeepSeek API支持
+  - 支持DeepSeek API调用
+  - 实现API优先级机制
+  - 优化错误处理和日志记录
 - **v1.0.0**: 初始AI服务实现
-- 支持OpenAI GPT-3.5-turbo模型
-- 实现智能摘要和趋势分析
-- 添加降级机制和错误处理 
+  - 支持OpenAI GPT-3.5-turbo模型
+  - 实现智能摘要和趋势分析
+  - 添加降级机制和错误处理 

@@ -16,14 +16,18 @@ async function testAIService() {
   console.log(`- AI服务启用状态: ${aiService.isAIServiceEnabled()}`);
   
   if (aiService.isAIServiceEnabled()) {
-    console.log('✅ OpenAI API已配置');
+    if (aiService.isDeepSeekService()) {
+      console.log('✅ DeepSeek API已配置');
+    } else {
+      console.log('✅ OpenAI API已配置');
+    }
     
     // 测试连接
-    console.log('\n🔗 测试OpenAI连接...');
+    console.log('\n🔗 测试AI服务连接...');
     const connectionTest = await aiService.testConnection();
     console.log(`- 连接测试结果: ${connectionTest ? '✅ 成功' : '❌ 失败'}`);
   } else {
-    console.log('⚠️  OpenAI API未配置，将使用规则基础分析');
+    console.log('⚠️  DeepSeek API和OpenAI API均未配置，将使用规则基础分析');
   }
 
   // 测试新闻摘要生成

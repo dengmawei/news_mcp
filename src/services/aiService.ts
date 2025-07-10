@@ -42,20 +42,40 @@ export class AIService {
   private openai: OpenAI | null = null;
   private logger: LoggerService;
   private isEnabled: boolean = false;
+  private isDeepSeek: boolean = false;
 
   constructor() {
     this.logger = new LoggerService();
-    this.initOpenAI();
+    this.initAI();
   }
 
-  private initOpenAI() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (apiKey) {
+  private initAI() {
+    // 优先检查DeepSeek API密钥
+    const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    
+    if (deepseekApiKey) {
       try {
         this.openai = new OpenAI({
-          apiKey: apiKey,
+          apiKey: deepseekApiKey,
+          baseURL: 'https://api.deepseek.com/v1',
         });
         this.isEnabled = true;
+        this.isDeepSeek = true;
+        this.logger.info('DeepSeek服务已初始化');
+      } catch (error) {
+        this.logger.error('DeepSeek初始化失败', { 
+          error: error instanceof Error ? error.message : String(error) 
+        });
+        this.isEnabled = false;
+      }
+    } else if (openaiApiKey) {
+      try {
+        this.openai = new OpenAI({
+          apiKey: openaiApiKey,
+        });
+        this.isEnabled = true;
+        this.isDeepSeek = false;
         this.logger.info('OpenAI服务已初始化');
       } catch (error) {
         this.logger.error('OpenAI初始化失败', { 
@@ -64,7 +84,7 @@ export class AIService {
         this.isEnabled = false;
       }
     } else {
-      this.logger.warn('未配置OPENAI_API_KEY，AI服务将使用规则基础分析');
+      this.logger.warn('未配置DEEPSEEK_API_KEY或OPENAI_API_KEY，AI服务将使用规则基础分析');
       this.isEnabled = false;
     }
   }
@@ -78,7 +98,7 @@ export class AIService {
       const prompt = this.buildSummaryPrompt(request);
       
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: this.isDeepSeek ? 'deepseek-chat' : 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
@@ -116,7 +136,7 @@ export class AIService {
       const prompt = this.buildTrendAnalysisPrompt(request);
       
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: this.isDeepSeek ? 'deepseek-chat' : 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
@@ -385,6 +405,10 @@ JSON格式示例：
     return this.isEnabled;
   }
 
+  isDeepSeekService(): boolean {
+    return this.isDeepSeek;
+  }
+
   async testConnection(): Promise<boolean> {
     if (!this.isEnabled || !this.openai) {
       return false;
@@ -392,10 +416,10 @@ JSON格式示例：
 
     try {
       await this.openai.models.list();
-      this.logger.info('OpenAI连接测试成功');
+      this.logger.info(`${this.isDeepSeek ? 'DeepSeek' : 'OpenAI'}连接测试成功`);
       return true;
     } catch (error) {
-      this.logger.error('OpenAI连接测试失败', { 
+      this.logger.error(`${this.isDeepSeek ? 'DeepSeek' : 'OpenAI'}连接测试失败`, { 
         error: error instanceof Error ? error.message : String(error) 
       });
       return false;

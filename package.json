@@ -13,6 +13,7 @@
     "test:coverage": "jest --coverage",
     "test:persistence": "node scripts/test-persistence.js",
     "test:ai": "node scripts/test-ai-service.js",
+    "test:deepseek": "node scripts/test-deepseek.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
