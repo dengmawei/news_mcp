@@ -100,10 +100,10 @@ export class DataSyncService {
       return result;
     } catch (error) {
       result.success = false;
-      result.errors.push(`同步失败: ${error.message}`);
+      result.errors.push(`同步失败: ${error instanceof Error ? error.message : String(error)}`);
       result.duration = Date.now() - startTime;
       
-      this.logger.error('新闻同步失败', { error: error.message });
+      this.logger.error('新闻同步失败', { error: error instanceof Error ? error.message : String(error) });
       return result;
     }
   }
@@ -145,10 +145,10 @@ export class DataSyncService {
         this.logger.debug('新闻源无新内容', { source: source.name });
       }
     } catch (error) {
-      result.errors.push(error.message);
+      result.errors.push(error instanceof Error ? error.message : String(error));
       this.logger.error('新闻源同步失败', {
         source: source.name,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
 
@@ -194,7 +194,7 @@ export class DataSyncService {
       this.logger.info('清理旧数据完成', { daysOld, deletedCount });
       return deletedCount;
     } catch (error) {
-      this.logger.error('清理旧数据失败', { daysOld, error: error.message });
+      this.logger.error('清理旧数据失败', { daysOld, error: error instanceof Error ? error.message : String(error) });
       return 0;
     }
   }
@@ -210,7 +210,7 @@ export class DataSyncService {
       this.logger.info('获取数据库统计信息', stats);
       return stats;
     } catch (error) {
-      this.logger.error('获取数据库统计信息失败', { error: error.message });
+      this.logger.error('获取数据库统计信息失败', { error: error instanceof Error ? error.message : String(error) });
       return {
         totalNews: 0,
         totalSources: 0,
@@ -227,7 +227,7 @@ export class DataSyncService {
       try {
         await this.syncNews();
       } catch (error) {
-        this.logger.error('定期同步失败', { error: error.message });
+        this.logger.error('定期同步失败', { error: error instanceof Error ? error.message : String(error) });
       }
     };
 
@@ -243,7 +243,7 @@ export class DataSyncService {
       await this.databaseService.disconnect();
       this.logger.info('数据同步服务已断开连接');
     } catch (error) {
-      this.logger.error('断开数据同步服务连接失败', { error: error.message });
+      this.logger.error('断开数据同步服务连接失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 } 

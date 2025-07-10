@@ -86,7 +86,7 @@ export class NewsAggregator {
 
       return news;
     } catch (error) {
-      this.logger.error('获取最新新闻失败', { error: error.message });
+      this.logger.error('获取最新新闻失败', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -153,7 +153,7 @@ export class NewsAggregator {
 
       return result;
     } catch (error) {
-      this.logger.error('搜索新闻失败', { query, error: error.message });
+      this.logger.error('搜索新闻失败', { query, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -261,7 +261,7 @@ export class NewsAggregator {
       this.logger.info('按来源获取新闻', { sourceName, count: news.length });
       return news;
     } catch (error) {
-      this.logger.error('按来源获取新闻失败', { sourceName, error: error.message });
+      this.logger.error('按来源获取新闻失败', { sourceName, error: error instanceof Error ? error.message : String(error) });
       
       // 降级到实时抓取
       const sources = await this.newsService.getNewsSources();
@@ -299,7 +299,7 @@ export class NewsAggregator {
       this.logger.info('获取热门话题', { timeframe, count: trendingTopics.length });
       return trendingTopics;
     } catch (error) {
-      this.logger.error('获取热门话题失败', { timeframe, error: error.message });
+      this.logger.error('获取热门话题失败', { timeframe, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -337,7 +337,7 @@ export class NewsAggregator {
       // 清空缓存
       this.clearCache();
     } catch (error) {
-      this.logger.error('刷新新闻失败', { error: error.message });
+      this.logger.error('刷新新闻失败', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -359,7 +359,7 @@ export class NewsAggregator {
       await this.databaseService.disconnect();
       this.logger.info('数据库连接已关闭');
     } catch (error) {
-      this.logger.error('关闭数据库连接失败', { error: error.message });
+      this.logger.error('关闭数据库连接失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 } 

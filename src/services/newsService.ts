@@ -132,13 +132,13 @@ export class NewsService {
         try {
           await this.databaseService.createNewsSource(source);
         } catch (error) {
-          this.logger.error('创建新闻源失败', { source: source.name, error: error.message });
+          this.logger.error('创建新闻源失败', { source: source.name, error: error instanceof Error ? error.message : String(error) });
         }
       }
       
       return includeStatus ? await this.getNewsSources(true) : this.sources;
     } catch (error) {
-      this.logger.error('获取新闻源失败', { error: error.message });
+      this.logger.error('获取新闻源失败', { error: error instanceof Error ? error.message : String(error) });
       return this.sources; // 降级到默认配置
     }
   }
@@ -291,7 +291,7 @@ export class NewsService {
       }
       return news;
     } catch (error) {
-      this.logger.error('获取新闻失败', { newsId, error: error.message });
+      this.logger.error('获取新闻失败', { newsId, error: error instanceof Error ? error.message : String(error) });
       return null;
     }
   }
@@ -313,7 +313,7 @@ export class NewsService {
     } catch (error) {
       this.logger.error('保存新闻失败', {
         count: newsItems.length,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
@@ -325,7 +325,7 @@ export class NewsService {
       this.logger.debug('获取最新新闻', { limit, category, count: news.length });
       return news;
     } catch (error) {
-      this.logger.error('获取最新新闻失败', { error: error.message });
+      this.logger.error('获取最新新闻失败', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -336,7 +336,7 @@ export class NewsService {
       this.logger.debug('搜索新闻', { query, limit, count: news.length });
       return news;
     } catch (error) {
-      this.logger.error('搜索新闻失败', { query, error: error.message });
+      this.logger.error('搜索新闻失败', { query, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -347,7 +347,7 @@ export class NewsService {
       this.logger.debug('按分类获取新闻', { category, limit, count: news.length });
       return news;
     } catch (error) {
-      this.logger.error('按分类获取新闻失败', { category, error: error.message });
+      this.logger.error('按分类获取新闻失败', { category, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -358,7 +358,7 @@ export class NewsService {
       this.logger.debug('按来源获取新闻', { sourceName, limit, count: news.length });
       return news;
     } catch (error) {
-      this.logger.error('按来源获取新闻失败', { sourceName, error: error.message });
+      this.logger.error('按来源获取新闻失败', { sourceName, error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -369,7 +369,7 @@ export class NewsService {
       this.logger.info('清理旧新闻', { daysOld, deletedCount });
       return deletedCount;
     } catch (error) {
-      this.logger.error('清理旧新闻失败', { daysOld, error: error.message });
+      this.logger.error('清理旧新闻失败', { daysOld, error: error instanceof Error ? error.message : String(error) });
       return 0;
     }
   }
@@ -379,7 +379,7 @@ export class NewsService {
       await this.databaseService.disconnect();
       this.logger.info('数据库连接已关闭');
     } catch (error) {
-      this.logger.error('关闭数据库连接失败', { error: error.message });
+      this.logger.error('关闭数据库连接失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 } 

@@ -227,12 +227,12 @@ class AINewsMCPServer {
             throw new Error(`未知的工具: ${name}`);
         }
       } catch (error) {
-        this.logger.error('工具调用失败', { tool: name, error: error.message });
+        this.logger.error('工具调用失败', { tool: name, error: error instanceof Error ? error.message : String(error) });
         return {
           content: [
             {
               type: 'text',
-              text: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
+              text: `错误: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
         };
@@ -376,7 +376,7 @@ class AINewsMCPServer {
       
       this.logger.info('定期数据同步已启动');
     } catch (error) {
-      this.logger.error('服务启动失败', { error: error.message });
+      this.logger.error('服务启动失败', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -390,7 +390,7 @@ class AINewsMCPServer {
       
       this.logger.info('AI新闻MCP服务已关闭');
     } catch (error) {
-      this.logger.error('服务关闭失败', { error: error.message });
+      this.logger.error('服务关闭失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 }

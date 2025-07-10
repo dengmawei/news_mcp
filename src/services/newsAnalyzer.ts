@@ -78,7 +78,7 @@ export class NewsAnalyzer {
       this.logger.info('生成并保存新闻摘要', { newsId, title: news.title });
       return summary;
     } catch (error) {
-      this.logger.error('获取新闻摘要失败', { newsId, error: error.message });
+      this.logger.error('获取新闻摘要失败', { newsId, error: error instanceof Error ? error.message : String(error) });
       
       // 降级到模拟数据
       const mockNews: NewsItem = {
@@ -140,7 +140,7 @@ export class NewsAnalyzer {
 
       return analysis;
     } catch (error) {
-      this.logger.error('AI趋势分析失败', { timeframe, error: error.message });
+      this.logger.error('AI趋势分析失败', { timeframe, error: error instanceof Error ? error.message : String(error) });
       return this.getEmptyTrendAnalysis(timeframe);
     }
   }
@@ -408,7 +408,7 @@ export class NewsAnalyzer {
       await this.databaseService.disconnect();
       this.logger.info('数据库连接已关闭');
     } catch (error) {
-      this.logger.error('关闭数据库连接失败', { error: error.message });
+      this.logger.error('关闭数据库连接失败', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 } 
