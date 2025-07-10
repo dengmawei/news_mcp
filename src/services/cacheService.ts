@@ -1,4 +1,3 @@
-import Redis from 'ioredis';
 import { PrismaClient } from '@prisma/client';
 
 export interface CacheOptions {
@@ -7,7 +6,7 @@ export interface CacheOptions {
 }
 
 export class CacheService {
-  private redis: Redis | null = null;
+  // private redis: Redis | null = null; // 移除Redis
   private prisma: PrismaClient;
   private memoryCache: Map<string, { value: any; expiresAt: number }> = new Map();
   private readonly DEFAULT_TTL = 300; // 5分钟
@@ -15,36 +14,15 @@ export class CacheService {
 
   constructor() {
     this.prisma = new PrismaClient();
-    this.initRedis();
+    // this.initRedis(); // 移除Redis初始化
   }
 
-  private async initRedis() {
-    try {
-      if (process.env.REDIS_URL) {
-        this.redis = new Redis(process.env.REDIS_URL);
-        await this.redis.ping();
-        console.log('Redis连接成功');
-      }
-    } catch (error) {
-      console.warn('Redis连接失败，使用内存缓存:', error);
-      this.redis = null;
-    }
-  }
+  // private async initRedis() { ... } // 移除整个Redis初始化方法
 
   async get<T>(key: string): Promise<T | null> {
     const fullKey = this.PREFIX + key;
 
-    // 尝试Redis缓存
-    if (this.redis) {
-      try {
-        const value = await this.redis.get(fullKey);
-        if (value) {
-          return JSON.parse(value);
-        }
-      } catch (error) {
-        console.error('Redis获取失败:', error);
-      }
-    }
+    // 移除Redis缓存逻辑
 
     // 尝试内存缓存
     const memoryEntry = this.memoryCache.get(fullKey);
@@ -62,13 +40,11 @@ export class CacheService {
 
       if (dbEntry && dbEntry.expiresAt > new Date()) {
         const value = JSON.parse(dbEntry.value);
-        
         // 同时更新内存缓存
         this.memoryCache.set(fullKey, {
           value,
           expiresAt: dbEntry.expiresAt.getTime()
         });
-
         return value;
       } else if (dbEntry) {
         // 删除过期条目
@@ -79,7 +55,6 @@ export class CacheService {
     } catch (error) {
       console.error('数据库缓存获取失败:', error);
     }
-
     return null;
   }
 
@@ -88,14 +63,7 @@ export class CacheService {
     const ttl = options.ttl || this.DEFAULT_TTL;
     const expiresAt = Date.now() + ttl * 1000;
 
-    // 设置Redis缓存
-    if (this.redis) {
-      try {
-        await this.redis.setex(fullKey, ttl, JSON.stringify(value));
-      } catch (error) {
-        console.error('Redis设置失败:', error);
-      }
-    }
+    // 移除Redis缓存逻辑
 
     // 设置内存缓存
     this.memoryCache.set(fullKey, {
@@ -125,14 +93,7 @@ export class CacheService {
   async delete(key: string): Promise<void> {
     const fullKey = this.PREFIX + key;
 
-    // 删除Redis缓存
-    if (this.redis) {
-      try {
-        await this.redis.del(fullKey);
-      } catch (error) {
-        console.error('Redis删除失败:', error);
-      }
-    }
+    // 移除Redis缓存逻辑
 
     // 删除内存缓存
     this.memoryCache.delete(fullKey);
@@ -148,17 +109,7 @@ export class CacheService {
   }
 
   async clear(): Promise<void> {
-    // 清空Redis缓存
-    if (this.redis) {
-      try {
-        const keys = await this.redis.keys(this.PREFIX + '*');
-        if (keys.length > 0) {
-          await this.redis.del(...keys);
-        }
-      } catch (error) {
-        console.error('Redis清空失败:', error);
-      }
-    }
+    // 移除Redis缓存逻辑
 
     // 清空内存缓存
     this.memoryCache.clear();
@@ -198,7 +149,7 @@ export class CacheService {
     }
 
     return {
-      redis: this.redis !== null,
+      redis: false, // Redis已禁用
       memorySize,
       dbSize
     };
@@ -228,9 +179,7 @@ export class CacheService {
   }
 
   async disconnect(): Promise<void> {
-    if (this.redis) {
-      await this.redis.disconnect();
-    }
+    // 移除Redis断开逻辑
     await this.prisma.$disconnect();
   }
 } 
