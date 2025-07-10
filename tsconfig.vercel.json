@@ -5,6 +5,9 @@
     "checkJs": false,
     "noEmitOnError": false,
     "skipLibCheck": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "target": "ES2017",
     "rootDir": "./"
   },
   "include": [
