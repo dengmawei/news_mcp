@@ -8,12 +8,16 @@ import {
 import { NewsService } from './services/newsService.js';
 import { NewsAggregator } from './services/newsAggregator.js';
 import { NewsAnalyzer } from './services/newsAnalyzer.js';
+import { DataSyncService } from './services/dataSyncService.js';
+import { LoggerService } from './services/loggerService.js';
 
 class AINewsMCPServer {
   private server: Server;
   private newsService: NewsService;
   private newsAggregator: NewsAggregator;
   private newsAnalyzer: NewsAnalyzer;
+  private dataSyncService: DataSyncService;
+  private logger: LoggerService;
 
   constructor() {
     this.server = new Server(
@@ -29,6 +33,8 @@ class AINewsMCPServer {
     this.newsService = new NewsService();
     this.newsAggregator = new NewsAggregator();
     this.newsAnalyzer = new NewsAnalyzer();
+    this.dataSyncService = new DataSyncService();
+    this.logger = new LoggerService();
 
     this.setupToolHandlers();
   }
@@ -135,6 +141,60 @@ class AINewsMCPServer {
               },
             },
           },
+          {
+            name: 'sync_news_data',
+            description: '同步新闻数据到数据库',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                force: {
+                  type: 'boolean',
+                  description: '强制同步，忽略时间限制',
+                  default: false,
+                },
+                sources: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: '指定要同步的新闻源名称列表',
+                },
+                maxAge: {
+                  type: 'number',
+                  description: '最大同步间隔（分钟）',
+                  default: 30,
+                },
+              },
+            },
+          },
+          {
+            name: 'get_sync_status',
+            description: '获取数据同步状态',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'get_database_stats',
+            description: '获取数据库统计信息',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'cleanup_old_data',
+            description: '清理旧数据',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                daysOld: {
+                  type: 'number',
+                  description: '删除多少天前的数据',
+                  default: 30,
+                },
+              },
+            },
+          },
         ],
       };
     });
@@ -155,10 +215,19 @@ class AINewsMCPServer {
             return await this.handleGetAITrends(args);
           case 'get_news_sources':
             return await this.handleGetNewsSources(args);
+          case 'sync_news_data':
+            return await this.handleSyncNewsData(args);
+          case 'get_sync_status':
+            return await this.handleGetSyncStatus(args);
+          case 'get_database_stats':
+            return await this.handleGetDatabaseStats(args);
+          case 'cleanup_old_data':
+            return await this.handleCleanupOldData(args);
           default:
             throw new Error(`未知的工具: ${name}`);
         }
       } catch (error) {
+        this.logger.error('工具调用失败', { tool: name, error: error.message });
         return {
           content: [
             {
@@ -241,13 +310,103 @@ class AINewsMCPServer {
     };
   }
 
+  private async handleSyncNewsData(args: any) {
+    const { force = false, sources, maxAge = 30 } = args;
+    const result = await this.dataSyncService.syncNews({ force, sources, maxAge });
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetSyncStatus(args: any) {
+    const status = await this.dataSyncService.getSyncStatus();
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(status, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleGetDatabaseStats(args: any) {
+    const stats = await this.dataSyncService.getDatabaseStats();
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(stats, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async handleCleanupOldData(args: any) {
+    const { daysOld = 30 } = args;
+    const deletedCount = await this.dataSyncService.cleanupOldData(daysOld);
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ deletedCount, daysOld }, null, 2),
+        },
+      ],
+    };
+  }
+
   async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.log('AI新闻MCP服务已启动');
+    try {
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      
+      this.logger.info('AI新闻MCP服务已启动');
+      
+      // 启动定期数据同步（每30分钟）
+      await this.dataSyncService.startPeriodicSync(30);
+      
+      this.logger.info('定期数据同步已启动');
+    } catch (error) {
+      this.logger.error('服务启动失败', { error: error.message });
+      throw error;
+    }
+  }
+
+  async shutdown() {
+    try {
+      await this.dataSyncService.disconnect();
+      await this.newsService.disconnect();
+      await this.newsAggregator.disconnect();
+      await this.newsAnalyzer.disconnect();
+      
+      this.logger.info('AI新闻MCP服务已关闭');
+    } catch (error) {
+      this.logger.error('服务关闭失败', { error: error.message });
+    }
   }
 }
 
 // 启动服务
 const server = new AINewsMCPServer();
+
+// 处理进程退出
+process.on('SIGINT', async () => {
+  await server.shutdown();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await server.shutdown();
+  process.exit(0);
+});
+
 server.run().catch(console.error); 

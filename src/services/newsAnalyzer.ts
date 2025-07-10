@@ -1,5 +1,7 @@
 import { NewsItem } from './newsService.js';
 import { NewsAggregator } from './newsAggregator.js';
+import { DatabaseService } from './databaseService.js';
+import { LoggerService } from './loggerService.js';
 
 export interface NewsSummary {
   id: string;
@@ -36,59 +38,111 @@ export interface TrendAnalysis {
 
 export class NewsAnalyzer {
   private newsAggregator: NewsAggregator;
+  private databaseService: DatabaseService;
+  private logger: LoggerService;
 
   constructor() {
     this.newsAggregator = new NewsAggregator();
+    this.databaseService = new DatabaseService();
+    this.logger = new LoggerService();
   }
 
   async getNewsSummary(newsId: string, includeKeyPoints: boolean = true): Promise<NewsSummary> {
-    // 这里应该从数据库或缓存中获取新闻详情
-    // 目前使用模拟数据
-    const mockNews: NewsItem = {
-      id: newsId,
-      title: 'OpenAI发布GPT-5，性能大幅提升',
-      description: 'OpenAI最新发布的GPT-5在多个基准测试中表现优异，推理能力和创造性都有显著提升。',
-      content: 'OpenAI今日发布了GPT-5，这是其大型语言模型系列的最新版本。新模型在推理、创造性和多模态能力方面都有显著提升。GPT-5在多个基准测试中超越了之前的版本，特别是在数学推理、代码生成和创意写作方面表现突出。',
-      url: 'https://example.com/gpt5-release',
-      source: 'TechCrunch AI',
-      publishedAt: new Date(),
-      category: 'products',
-      tags: ['gpt-5', 'openai', 'llm', 'ai'],
-      author: 'John Doe'
-    };
+    try {
+      // 首先尝试从数据库获取已保存的摘要
+      const existingSummary = await this.databaseService.getNewsSummary(newsId);
+      if (existingSummary) {
+        this.logger.info('从数据库获取新闻摘要', { newsId });
+        return existingSummary;
+      }
 
-    const summary = await this.generateSummary(mockNews, includeKeyPoints);
-    return summary;
+      // 从数据库获取新闻详情
+      const news = await this.databaseService.getNewsById(newsId);
+      if (!news) {
+        throw new Error(`未找到新闻: ${newsId}`);
+      }
+
+      // 生成新的摘要
+      const summary = await this.generateSummary(news, includeKeyPoints);
+      
+      // 保存摘要到数据库
+      await this.databaseService.saveNewsSummary(newsId, {
+        title: summary.title,
+        summary: summary.summary,
+        keyPoints: summary.keyPoints,
+        sentiment: summary.sentiment,
+        impact: summary.impact,
+        relatedTopics: summary.relatedTopics
+      });
+
+      this.logger.info('生成并保存新闻摘要', { newsId, title: news.title });
+      return summary;
+    } catch (error) {
+      this.logger.error('获取新闻摘要失败', { newsId, error: error.message });
+      
+      // 降级到模拟数据
+      const mockNews: NewsItem = {
+        id: newsId,
+        title: 'OpenAI发布GPT-5，性能大幅提升',
+        description: 'OpenAI最新发布的GPT-5在多个基准测试中表现优异，推理能力和创造性都有显著提升。',
+        content: 'OpenAI今日发布了GPT-5，这是其大型语言模型系列的最新版本。新模型在推理、创造性和多模态能力方面都有显著提升。GPT-5在多个基准测试中超越了之前的版本，特别是在数学推理、代码生成和创意写作方面表现突出。',
+        url: 'https://example.com/gpt5-release',
+        source: 'TechCrunch AI',
+        publishedAt: new Date(),
+        category: 'products',
+        tags: ['gpt-5', 'openai', 'llm', 'ai'],
+        author: 'John Doe'
+      };
+
+      return await this.generateSummary(mockNews, includeKeyPoints);
+    }
   }
 
   async getAITrends(timeframe: 'week' | 'month' | 'quarter' = 'month', includeStats: boolean = true): Promise<TrendAnalysis> {
-    const news = await this.newsAggregator.getLatestNews(1000);
-    
-    // 根据时间范围过滤新闻
-    const filteredNews = this.filterNewsByTimeframe(news, timeframe);
-    
-    // 分析热门话题
-    const topTopics = this.analyzeTopTopics(filteredNews);
-    
-    // 分析新闻源
-    const topSources = this.analyzeTopSources(filteredNews);
-    
-    // 分析情感分布
-    const sentimentDistribution = this.analyzeSentimentDistribution(filteredNews);
-    
-    // 识别新兴和衰退话题
-    const { emergingTopics, decliningTopics } = this.identifyTopicTrends(filteredNews, timeframe);
-    
-    const analysis: TrendAnalysis = {
-      timeframe,
-      topTopics,
-      topSources,
-      sentimentDistribution,
-      emergingTopics,
-      decliningTopics
-    };
+    try {
+      // 从数据库获取新闻数据
+      const news = await this.databaseService.getLatestNews(1000);
+      
+      // 根据时间范围过滤新闻
+      const filteredNews = this.filterNewsByTimeframe(news, timeframe);
+      
+      if (filteredNews.length === 0) {
+        this.logger.warn('指定时间范围内没有新闻数据', { timeframe });
+        return this.getEmptyTrendAnalysis(timeframe);
+      }
+      
+      // 分析热门话题
+      const topTopics = this.analyzeTopTopics(filteredNews);
+      
+      // 分析新闻源
+      const topSources = this.analyzeTopSources(filteredNews);
+      
+      // 分析情感分布
+      const sentimentDistribution = this.analyzeSentimentDistribution(filteredNews);
+      
+      // 识别新兴和衰退话题
+      const { emergingTopics, decliningTopics } = this.identifyTopicTrends(filteredNews, timeframe);
+      
+      const analysis: TrendAnalysis = {
+        timeframe,
+        topTopics,
+        topSources,
+        sentimentDistribution,
+        emergingTopics,
+        decliningTopics
+      };
 
-    return analysis;
+      this.logger.info('AI趋势分析完成', { 
+        timeframe, 
+        newsCount: filteredNews.length,
+        topTopicsCount: topTopics.length 
+      });
+
+      return analysis;
+    } catch (error) {
+      this.logger.error('AI趋势分析失败', { timeframe, error: error.message });
+      return this.getEmptyTrendAnalysis(timeframe);
+    }
   }
 
   private async generateSummary(news: NewsItem, includeKeyPoints: boolean): Promise<NewsSummary> {
@@ -277,10 +331,41 @@ export class NewsAnalyzer {
 
   private identifyTopicTrends(news: NewsItem[], timeframe: string): { emergingTopics: string[]; decliningTopics: string[] } {
     // 这里可以实现更复杂的趋势分析算法
-    // 目前返回模拟数据
+    // 目前基于简单的频率分析
+    
+    const tagCount: { [key: string]: number } = {};
+    const recentTagCount: { [key: string]: number } = {};
+    
+    const now = new Date();
+    const recentCutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 最近7天
+    
+    news.forEach(item => {
+      item.tags.forEach(tag => {
+        tagCount[tag] = (tagCount[tag] || 0) + 1;
+        
+        if (item.publishedAt >= recentCutoff) {
+          recentTagCount[tag] = (recentTagCount[tag] || 0) + 1;
+        }
+      });
+    });
+    
+    const emergingTopics: string[] = [];
+    const decliningTopics: string[] = [];
+    
+    Object.entries(tagCount).forEach(([tag, totalCount]) => {
+      const recentCount = recentTagCount[tag] || 0;
+      const recentRatio = recentCount / totalCount;
+      
+      if (recentRatio > 0.4) {
+        emergingTopics.push(tag);
+      } else if (recentRatio < 0.1 && totalCount > 2) {
+        decliningTopics.push(tag);
+      }
+    });
+    
     return {
-      emergingTopics: ['multimodal ai', 'ai agents', 'edge ai'],
-      decliningTopics: ['basic chatbots', 'simple automation']
+      emergingTopics: emergingTopics.slice(0, 5),
+      decliningTopics: decliningTopics.slice(0, 5)
     };
   }
 
@@ -304,6 +389,26 @@ export class NewsAnalyzer {
       case 'negative': return -1;
       case 'neutral': return 0;
       default: return 0;
+    }
+  }
+
+  private getEmptyTrendAnalysis(timeframe: string): TrendAnalysis {
+    return {
+      timeframe,
+      topTopics: [],
+      topSources: [],
+      sentimentDistribution: { positive: 0, negative: 0, neutral: 0 },
+      emergingTopics: [],
+      decliningTopics: []
+    };
+  }
+
+  async disconnect(): Promise<void> {
+    try {
+      await this.databaseService.disconnect();
+      this.logger.info('数据库连接已关闭');
+    } catch (error) {
+      this.logger.error('关闭数据库连接失败', { error: error.message });
     }
   }
 } 

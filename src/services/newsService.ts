@@ -1,6 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import Parser from 'rss-parser';
+import { DatabaseService } from './databaseService.js';
+import { LoggerService } from './loggerService.js';
 
 export interface NewsSource {
   id: string;
@@ -28,6 +30,8 @@ export interface NewsItem {
 }
 
 export class NewsService {
+  private databaseService: DatabaseService;
+  private logger: LoggerService;
   private sources: NewsSource[] = [
     {
       id: 'techcrunch-ai',
@@ -79,6 +83,8 @@ export class NewsService {
   private parser: Parser;
 
   constructor() {
+    this.databaseService = new DatabaseService();
+    this.logger = new LoggerService();
     this.parser = new Parser({
       customFields: {
         item: ['media:content', 'media:thumbnail', 'dc:creator'],
@@ -87,45 +93,85 @@ export class NewsService {
   }
 
   async getNewsSources(includeStatus: boolean = false): Promise<NewsSource[]> {
-    if (includeStatus) {
-      // 检查每个源的状态
-      const sourcesWithStatus = await Promise.all(
-        this.sources.map(async (source) => {
-          try {
-            const response = await axios.head(source.url, { timeout: 5000 });
-            return {
-              ...source,
-              isActive: response.status === 200,
-              lastUpdate: new Date(),
-            };
-          } catch (error) {
-            return {
-              ...source,
-              isActive: false,
-              lastUpdate: new Date(),
-            };
-          }
-        })
-      );
-      return sourcesWithStatus;
+    try {
+      // 首先尝试从数据库获取新闻源
+      const dbSources = await this.databaseService.getNewsSources();
+      
+      if (dbSources.length > 0) {
+        this.logger.info('从数据库获取新闻源', { count: dbSources.length });
+        
+        if (includeStatus) {
+          // 检查每个源的状态
+          const sourcesWithStatus = await Promise.all(
+            dbSources.map(async (source) => {
+              try {
+                const response = await axios.head(source.url, { timeout: 5000 });
+                return {
+                  ...source,
+                  isActive: response.status === 200,
+                  lastUpdate: new Date(),
+                };
+              } catch (error) {
+                return {
+                  ...source,
+                  isActive: false,
+                  lastUpdate: new Date(),
+                };
+              }
+            })
+          );
+          return sourcesWithStatus;
+        }
+        return dbSources;
+      }
+      
+      // 如果数据库中没有新闻源，使用默认配置并保存到数据库
+      this.logger.info('数据库中没有新闻源，使用默认配置');
+      
+      for (const source of this.sources) {
+        try {
+          await this.databaseService.createNewsSource(source);
+        } catch (error) {
+          this.logger.error('创建新闻源失败', { source: source.name, error: error.message });
+        }
+      }
+      
+      return includeStatus ? await this.getNewsSources(true) : this.sources;
+    } catch (error) {
+      this.logger.error('获取新闻源失败', { error: error.message });
+      return this.sources; // 降级到默认配置
     }
-    return this.sources;
   }
 
   async fetchNewsFromSource(source: NewsSource): Promise<NewsItem[]> {
+    const startTime = Date.now();
+    
     try {
+      let newsItems: NewsItem[] = [];
+      
       switch (source.type) {
         case 'rss':
-          return await this.fetchFromRSS(source);
+          newsItems = await this.fetchFromRSS(source);
+          break;
         case 'api':
-          return await this.fetchFromAPI(source);
+          newsItems = await this.fetchFromAPI(source);
+          break;
         case 'scrape':
-          return await this.fetchFromScraping(source);
+          newsItems = await this.fetchFromScraping(source);
+          break;
         default:
           throw new Error(`不支持的新闻源类型: ${source.type}`);
       }
+      
+      // 保存新闻到数据库
+      if (newsItems.length > 0) {
+        await this.saveNews(newsItems);
+        this.logger.logNewsFetch(source.name, newsItems.length, Date.now() - startTime);
+      }
+      
+      return newsItems;
     } catch (error) {
-      console.error(`从 ${source.name} 获取新闻失败:`, error);
+      this.logger.logNewsError(source.name, error as Error);
       return [];
     }
   }
@@ -238,13 +284,102 @@ export class NewsService {
   }
 
   async getNewsById(newsId: string): Promise<NewsItem | null> {
-    // 这里可以实现从数据库或缓存中获取特定新闻的逻辑
-    // 目前返回null，实际实现中需要存储新闻数据
-    return null;
+    try {
+      const news = await this.databaseService.getNewsById(newsId);
+      if (news) {
+        this.logger.debug('从数据库获取新闻', { newsId, title: news.title });
+      }
+      return news;
+    } catch (error) {
+      this.logger.error('获取新闻失败', { newsId, error: error.message });
+      return null;
+    }
   }
 
   async saveNews(newsItems: NewsItem[]): Promise<void> {
-    // 这里可以实现保存新闻到数据库的逻辑
-    console.log(`保存 ${newsItems.length} 条新闻`);
+    if (newsItems.length === 0) {
+      return;
+    }
+    
+    try {
+      const startTime = Date.now();
+      await this.databaseService.saveNews(newsItems);
+      const duration = Date.now() - startTime;
+      
+      this.logger.info('新闻保存成功', {
+        count: newsItems.length,
+        duration: `${duration}ms`
+      });
+    } catch (error) {
+      this.logger.error('保存新闻失败', {
+        count: newsItems.length,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  async getLatestNews(limit: number = 10, category?: string): Promise<NewsItem[]> {
+    try {
+      const news = await this.databaseService.getLatestNews(limit, category);
+      this.logger.debug('获取最新新闻', { limit, category, count: news.length });
+      return news;
+    } catch (error) {
+      this.logger.error('获取最新新闻失败', { error: error.message });
+      return [];
+    }
+  }
+
+  async searchNews(query: string, limit: number = 10): Promise<NewsItem[]> {
+    try {
+      const news = await this.databaseService.searchNews(query, limit);
+      this.logger.debug('搜索新闻', { query, limit, count: news.length });
+      return news;
+    } catch (error) {
+      this.logger.error('搜索新闻失败', { query, error: error.message });
+      return [];
+    }
+  }
+
+  async getNewsByCategory(category: string, limit: number = 10): Promise<NewsItem[]> {
+    try {
+      const news = await this.databaseService.getNewsByCategory(category, limit);
+      this.logger.debug('按分类获取新闻', { category, limit, count: news.length });
+      return news;
+    } catch (error) {
+      this.logger.error('按分类获取新闻失败', { category, error: error.message });
+      return [];
+    }
+  }
+
+  async getNewsBySource(sourceName: string, limit: number = 10): Promise<NewsItem[]> {
+    try {
+      const news = await this.databaseService.getNewsBySource(sourceName, limit);
+      this.logger.debug('按来源获取新闻', { sourceName, limit, count: news.length });
+      return news;
+    } catch (error) {
+      this.logger.error('按来源获取新闻失败', { sourceName, error: error.message });
+      return [];
+    }
+  }
+
+  async cleanupOldNews(daysOld: number = 30): Promise<number> {
+    try {
+      const deletedCount = await this.databaseService.cleanupOldNews(daysOld);
+      this.logger.info('清理旧新闻', { daysOld, deletedCount });
+      return deletedCount;
+    } catch (error) {
+      this.logger.error('清理旧新闻失败', { daysOld, error: error.message });
+      return 0;
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    try {
+      await this.databaseService.disconnect();
+      this.logger.info('数据库连接已关闭');
+    } catch (error) {
+      this.logger.error('关闭数据库连接失败', { error: error.message });
+    }
   }
 } 
