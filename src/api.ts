@@ -350,8 +350,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// 404处理
-app.use('*', (req, res) => {
+// 404处理 - 修复路由模式
+app.use((req, res) => {
   res.status(404).json({ 
     success: false, 
     error: '接口不存在',
@@ -372,11 +372,9 @@ app.use('*', (req, res) => {
   });
 });
 
-// 启动服务器
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(port, () => {
-    logger.info(`AI新闻MCP HTTP API服务已启动，端口: ${port}`);
-  });
-}
+// 启动服务器 - 在所有环境下都启动
+app.listen(port, () => {
+  logger.info(`AI新闻MCP HTTP API服务已启动，端口: ${port}`);
+});
 
 export default app; 
