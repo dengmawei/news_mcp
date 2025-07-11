@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.vercel.json",
-    "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json && node scripts/copy-api.js",
+    "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json",
     "dev": "tsx src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
