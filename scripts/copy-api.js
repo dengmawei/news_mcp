@@ -30,4 +30,11 @@ if (fs.existsSync(apiDir)) {
   console.log('API文件复制完成');
 } else {
   console.log('API目录不存在，跳过复制');
+}
+
+// 确保没有创建public目录
+const publicDir = path.join(process.cwd(), 'dist', 'public');
+if (fs.existsSync(publicDir)) {
+  fs.rmSync(publicDir, { recursive: true, force: true });
+  console.log('删除误创建的public目录');
 } 
