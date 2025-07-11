@@ -1,3 +1,6 @@
 import app from '../src/api.js';
 
-export default app; 
+// Vercel Serverless Function 入口
+export default function handler(req: any, res: any) {
+  return app(req, res);
+} 

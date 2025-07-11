@@ -2,7 +2,6 @@
   "name": "ai-news-mcp",
   "version": "1.0.0",
   "description": "MCP服务 - 关注最新AI应用新闻",
-  "main": "dist/src/api.js",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
@@ -10,7 +9,6 @@
   "scripts": {
     "build": "tsc --project tsconfig.vercel.json",
     "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json && node scripts/copy-api.js",
-    "start": "node dist/src/api.js",
     "dev": "tsx src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",

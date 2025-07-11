@@ -372,9 +372,5 @@ app.use((req, res) => {
   });
 });
 
-// 启动服务器 - 在所有环境下都启动
-app.listen(port, () => {
-  logger.info(`AI新闻MCP HTTP API服务已启动，端口: ${port}`);
-});
-
+// 移除服务器启动代码 - Serverless Function 不需要
 export default app; 

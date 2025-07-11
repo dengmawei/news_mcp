@@ -18,13 +18,6 @@ if (fs.existsSync(apiDir)) {
   
   const files = fs.readdirSync(apiDir);
   files.forEach(file => {
-    const ext = path.extname(file);
-    // 只复制编译后的文件，不复制 .ts 源文件
-    if (ext === '.ts') {
-      console.log(`跳过文件: ${file} (TypeScript源文件)`);
-      return;
-    }
-    
     const srcPath = path.join(apiDir, file);
     const destPath = path.join(distApiDir, file);
     
