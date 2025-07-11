@@ -1,17 +1,21 @@
-import { PrismaClient } from '@prisma/client';
 import { NewsItem, NewsSource } from './newsService.js';
 import { NewsSummary } from './newsAnalyzer.js';
+import { getPrismaClient, disconnectPrisma } from '../utils/prismaWrapper.js';
 
 export class DatabaseService {
-  private prisma: PrismaClient;
-
   constructor() {
-    this.prisma = new PrismaClient();
+    // 构造函数中不初始化 Prisma，而是在需要时动态获取
+  }
+
+  // 确保 Prisma 客户端已初始化
+  private async ensurePrisma() {
+    return await getPrismaClient();
   }
 
   // 新闻源管理
   async createNewsSource(source: Omit<NewsSource, 'id' | 'isActive' | 'lastUpdate'>): Promise<NewsSource> {
-    const dbSource = await this.prisma.newsSource.create({
+    const prisma = await this.ensurePrisma();
+    const dbSource = await prisma.newsSource.create({
       data: {
         name: source.name,
         url: source.url,
@@ -25,7 +29,8 @@ export class DatabaseService {
   }
 
   async getNewsSources(): Promise<NewsSource[]> {
-    const dbSources = await this.prisma.newsSource.findMany({
+    const prisma = await this.ensurePrisma();
+    const dbSources = await prisma.newsSource.findMany({
       where: { isActive: true }
     });
 
@@ -33,7 +38,8 @@ export class DatabaseService {
   }
 
   async updateNewsSourceStatus(id: string, isActive: boolean): Promise<void> {
-    await this.prisma.newsSource.update({
+    const prisma = await this.ensurePrisma();
+    await prisma.newsSource.update({
       where: { id },
       data: { 
         isActive,
@@ -44,15 +50,16 @@ export class DatabaseService {
 
   // 新闻管理
   async saveNews(newsItems: NewsItem[]): Promise<void> {
+    const prisma = await this.ensurePrisma();
     for (const news of newsItems) {
       try {
         // 查找或创建新闻源
-        let source = await this.prisma.newsSource.findFirst({
+        let source = await prisma.newsSource.findFirst({
           where: { name: news.source }
         });
 
         if (!source) {
-          source = await this.prisma.newsSource.create({
+          source = await prisma.newsSource.create({
             data: {
               name: news.source,
               url: '', // 需要从配置中获取
@@ -64,12 +71,12 @@ export class DatabaseService {
         }
 
         // 检查新闻是否已存在
-        const existingNews = await this.prisma.newsItem.findUnique({
+        const existingNews = await prisma.newsItem.findUnique({
           where: { url: news.url }
         });
 
         if (!existingNews) {
-          await this.prisma.newsItem.create({
+          await prisma.newsItem.create({
             data: {
               title: news.title,
               description: news.description,
@@ -91,7 +98,8 @@ export class DatabaseService {
   }
 
   async getNewsById(id: string): Promise<NewsItem | null> {
-    const dbNews = await this.prisma.newsItem.findUnique({
+    const prisma = await this.ensurePrisma();
+    const dbNews = await prisma.newsItem.findUnique({
       where: { id },
       include: { source: true }
     });
@@ -102,9 +110,10 @@ export class DatabaseService {
   }
 
   async getLatestNews(limit: number = 10, category?: string): Promise<NewsItem[]> {
+    const prisma = await this.ensurePrisma();
     const where = category ? { category } : {};
     
-    const dbNews = await this.prisma.newsItem.findMany({
+    const dbNews = await prisma.newsItem.findMany({
       where,
       include: { source: true },
       orderBy: { publishedAt: 'desc' },
@@ -115,7 +124,8 @@ export class DatabaseService {
   }
 
   async searchNews(query: string, limit: number = 10): Promise<NewsItem[]> {
-    const dbNews = await this.prisma.newsItem.findMany({
+    const prisma = await this.ensurePrisma();
+    const dbNews = await prisma.newsItem.findMany({
       where: {
         OR: [
           { title: { contains: query } },
@@ -136,7 +146,8 @@ export class DatabaseService {
   }
 
   async getNewsBySource(sourceName: string, limit: number = 10): Promise<NewsItem[]> {
-    const dbNews = await this.prisma.newsItem.findMany({
+    const prisma = await this.ensurePrisma();
+    const dbNews = await prisma.newsItem.findMany({
       where: {
         source: {
           name: sourceName
@@ -152,7 +163,8 @@ export class DatabaseService {
 
   // 新闻摘要管理
   async saveNewsSummary(newsId: string, summary: Omit<NewsSummary, 'id' | 'newsId' | 'source' | 'publishedAt'>): Promise<void> {
-    await this.prisma.newsSummary.upsert({
+    const prisma = await this.ensurePrisma();
+    await prisma.newsSummary.upsert({
       where: { newsId },
       update: {
         summary: summary.summary,
@@ -173,7 +185,8 @@ export class DatabaseService {
   }
 
   async getNewsSummary(newsId: string): Promise<NewsSummary | null> {
-    const dbSummary = await this.prisma.newsSummary.findUnique({
+    const prisma = await this.ensurePrisma();
+    const dbSummary = await prisma.newsSummary.findUnique({
       where: { newsId },
       include: { news: { include: { source: true } } }
     });
@@ -200,19 +213,20 @@ export class DatabaseService {
     newsByCategory: { category: string; count: number }[];
     newsBySource: { source: string; count: number }[];
   }> {
+    const prisma = await this.ensurePrisma();
     const [totalNews, totalSources, newsByCategory, newsBySource] = await Promise.all([
-      this.prisma.newsItem.count(),
-      this.prisma.newsSource.count({ where: { isActive: true } }),
-      this.prisma.newsItem.groupBy({
+      prisma.newsItem.count(),
+      prisma.newsSource.count({ where: { isActive: true } }),
+      prisma.newsItem.groupBy({
         by: ['category'],
         _count: { category: true }
       }),
-      this.prisma.newsItem.groupBy({
+      prisma.newsItem.groupBy({
         by: ['sourceId'],
         _count: { sourceId: true }
       }).then(async (grouped: any[]) => {
         const sourceIds = grouped.map((g: any) => g.sourceId);
-        const sources = await this.prisma.newsSource.findMany({
+        const sources = await prisma.newsSource.findMany({
           where: { id: { in: sourceIds } }
         });
         return grouped.map((g: any) => ({
@@ -238,10 +252,11 @@ export class DatabaseService {
 
   // 数据清理
   async cleanupOldNews(daysOld: number = 30): Promise<number> {
+    const prisma = await this.ensurePrisma();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const result = await this.prisma.newsItem.deleteMany({
+    const result = await prisma.newsItem.deleteMany({
       where: {
         publishedAt: {
           lt: cutoffDate
@@ -283,6 +298,6 @@ export class DatabaseService {
   }
 
   async disconnect(): Promise<void> {
-    await this.prisma.$disconnect();
+    await disconnectPrisma();
   }
 } 

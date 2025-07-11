@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { getPrismaClient, disconnectPrisma } from '../utils/prismaWrapper.js';
 
 export interface CacheOptions {
   ttl?: number; // 过期时间（秒）
@@ -7,14 +7,18 @@ export interface CacheOptions {
 
 export class CacheService {
   // private redis: Redis | null = null; // 移除Redis
-  private prisma: PrismaClient;
   private memoryCache: Map<string, { value: any; expiresAt: number }> = new Map();
   private readonly DEFAULT_TTL = 300; // 5分钟
   private readonly PREFIX = 'ai_news:';
 
   constructor() {
-    this.prisma = new PrismaClient();
+    // 构造函数中不初始化 Prisma，而是在需要时动态获取
     // this.initRedis(); // 移除Redis初始化
+  }
+
+  // 确保 Prisma 客户端已初始化
+  private async ensurePrisma() {
+    return await getPrismaClient();
   }
 
   // private async initRedis() { ... } // 移除整个Redis初始化方法
@@ -34,7 +38,8 @@ export class CacheService {
 
     // 尝试数据库缓存
     try {
-      const dbEntry = await this.prisma.cacheEntry.findUnique({
+      const prisma = await this.ensurePrisma();
+      const dbEntry = await prisma.cacheEntry.findUnique({
         where: { key: fullKey }
       });
 
@@ -48,7 +53,7 @@ export class CacheService {
         return value;
       } else if (dbEntry) {
         // 删除过期条目
-        await this.prisma.cacheEntry.delete({
+        await prisma.cacheEntry.delete({
           where: { key: fullKey }
         });
       }
@@ -73,7 +78,8 @@ export class CacheService {
 
     // 设置数据库缓存
     try {
-      await this.prisma.cacheEntry.upsert({
+      const prisma = await this.ensurePrisma();
+      await prisma.cacheEntry.upsert({
         where: { key: fullKey },
         update: {
           value: JSON.stringify(value),
@@ -100,7 +106,8 @@ export class CacheService {
 
     // 删除数据库缓存
     try {
-      await this.prisma.cacheEntry.deleteMany({
+      const prisma = await this.ensurePrisma();
+      await prisma.cacheEntry.deleteMany({
         where: { key: fullKey }
       });
     } catch (error) {
@@ -116,7 +123,8 @@ export class CacheService {
 
     // 清空数据库缓存
     try {
-      await this.prisma.cacheEntry.deleteMany({
+      const prisma = await this.ensurePrisma();
+      await prisma.cacheEntry.deleteMany({
         where: {
           key: {
             startsWith: this.PREFIX
@@ -137,7 +145,8 @@ export class CacheService {
     let dbSize = 0;
 
     try {
-      dbSize = await this.prisma.cacheEntry.count({
+      const prisma = await this.ensurePrisma();
+      dbSize = await prisma.cacheEntry.count({
         where: {
           key: {
             startsWith: this.PREFIX
@@ -166,7 +175,8 @@ export class CacheService {
 
     // 清理过期的数据库缓存
     try {
-      await this.prisma.cacheEntry.deleteMany({
+      const prisma = await this.ensurePrisma();
+      await prisma.cacheEntry.deleteMany({
         where: {
           expiresAt: {
             lte: new Date()
@@ -180,6 +190,6 @@ export class CacheService {
 
   async disconnect(): Promise<void> {
     // 移除Redis断开逻辑
-    await this.prisma.$disconnect();
+    await disconnectPrisma();
   }
 } 
