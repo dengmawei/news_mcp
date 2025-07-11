@@ -4,12 +4,16 @@ let prismaClient: any = null;
 export async function getPrismaClient() {
   if (!prismaClient) {
     try {
-      // 尝试 ES 模块导入
-      const { PrismaClient } = await import('@prisma/client');
+      // 使用 createRequire 来在 ES 模块中导入 CommonJS 模块
+      const { createRequire } = await import('module');
+      const require = createRequire(import.meta.url);
+      const { PrismaClient } = require('@prisma/client');
+      
       prismaClient = new PrismaClient();
+      console.log('Prisma 客户端初始化成功');
     } catch (error) {
       console.error('Prisma 客户端初始化失败:', error);
-      throw error;
+      throw new Error(`无法初始化 Prisma 客户端: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   return prismaClient;
@@ -17,8 +21,13 @@ export async function getPrismaClient() {
 
 export async function disconnectPrisma() {
   if (prismaClient) {
-    await prismaClient.$disconnect();
-    prismaClient = null;
+    try {
+      await prismaClient.$disconnect();
+      prismaClient = null;
+      console.log('Prisma 客户端已断开连接');
+    } catch (error) {
+      console.error('断开 Prisma 连接时出错:', error instanceof Error ? error.message : String(error));
+    }
   }
 }
 

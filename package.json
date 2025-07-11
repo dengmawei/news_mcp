@@ -4,6 +4,9 @@
   "description": "MCP服务 - 关注最新AI应用新闻",
   "main": "dist/index.js",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.vercel.json",
     "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json && node scripts/copy-api.js",
