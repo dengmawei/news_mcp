@@ -47,7 +47,7 @@
 - **协议**: Model Context Protocol (MCP)
 - **AI服务**: DeepSeek API / OpenAI API
 - **测试**: Jest
-- **部署**: Node.js / Docker
+- **部署**: Node.js
 
 ### 项目结构
 ```
@@ -363,25 +363,7 @@ NODE_ENV=production
 PORT=3000
 ```
 
-### Docker部署
 
-#### 1. 使用Docker Compose
-```bash
-# 启动完整服务（包含Redis）
-docker-compose up -d
-
-# 仅启动主服务（使用SQLite）
-docker-compose up ai-news-mcp
-```
-
-#### 2. 使用Dockerfile
-```bash
-# 构建镜像
-docker build -t ai-news-mcp .
-
-# 运行容器
-docker run -p 3000:3000 --env-file .env ai-news-mcp
-```
 
 ### 本地部署
 ```bash
