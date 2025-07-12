@@ -1,5 +1,6 @@
+# Node.js项目配置
 [phases.setup]
-nixPkgs = ["nodejs_18", "npm"]
+nixPkgs = ["nodejs_18"]
 
 [phases.install]
 cmds = ["npm ci --include=dev"]
