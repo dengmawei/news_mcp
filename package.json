@@ -9,10 +9,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "build:cloud": "node scripts/cloud-build.js",
-    "build:prod": "node scripts/production-build.js",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "start:prod": "node scripts/start-prod.js",
     "server": "node dist/server.js",
     "dev:server": "tsx src/server.ts",
     "test": "jest",
