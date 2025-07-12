@@ -47,7 +47,7 @@
 - **协议**: Model Context Protocol (MCP)
 - **AI服务**: DeepSeek API / OpenAI API
 - **测试**: Jest
-- **部署**: Vercel / Docker
+- **部署**: Node.js / Docker
 
 ### 项目结构
 ```
@@ -165,11 +165,21 @@ npm run build
 
 ### 7. 运行服务
 ```bash
-# 开发模式
+# 使用启动器（推荐）
+npm run launch
+
+# 或者手动启动
+# 开发模式 - MCP服务
 npm run dev
 
-# 生产模式
+# 开发模式 - HTTP API服务
+npm run dev:server
+
+# 生产模式 - MCP服务
 npm start
+
+# 生产模式 - HTTP API服务
+npm run server
 ```
 
 ### 8. 验证安装
@@ -322,27 +332,29 @@ npm run test:openai
 
 ## 🚀 部署指南
 
-### Vercel部署 (推荐)
+### Node.js部署 (推荐)
 
 #### 1. 准备部署
 ```bash
-# 验证部署配置
-npm run check:deploy
-
 # 构建项目
 npm run build
+
+# 初始化数据库
+npm run db:push
+npm run db:init
 ```
 
-#### 2. 部署到Vercel
+#### 2. 启动服务
 ```bash
-# 使用Vercel CLI
-npm i -g vercel
-vercel login
-vercel --prod
+# 生产环境启动
+npm start
+
+# 或者直接运行
+node dist/index.js
 ```
 
 #### 3. 配置环境变量
-在Vercel项目设置中添加：
+创建 `.env` 文件并配置：
 ```env
 DATABASE_URL="file:./dev.db"
 DEEPSEEK_API_KEY=your_deepseek_api_key_here

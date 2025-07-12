@@ -7,9 +7,11 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.vercel.json",
-    "vercel-build": "npm run db:generate && tsc --project tsconfig.vercel.json",
+    "build": "tsc",
     "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "server": "node dist/server.js",
+    "dev:server": "tsx src/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -27,7 +29,7 @@
     "db:cleanup": "node -e \"import('./src/services/dataSyncService.js').then(m => new m.DataSyncService().cleanupOldData(30).then(count => console.log('清理了', count, '条旧数据')))\"",
     "mcp:test": "node examples/simple-mcp-test.js",
     "mcp:demo": "node examples/mcp-client-example.js",
-    "check:deploy": "node scripts/check-deployment.js"
+    "launch": "node scripts/start.js"
   },
   "keywords": [
     "mcp",

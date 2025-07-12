@@ -1,54 +1,70 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// 检查是否已构建
 import { existsSync } from 'fs';
-const distPath = join(__dirname, '..', 'dist');
+import { join } from 'path';
 
-if (!existsSync(distPath)) {
-  console.log('正在构建项目...');
-  const buildProcess = spawn('npm', ['run', 'build'], {
-    stdio: 'inherit',
-    cwd: join(__dirname, '..')
-  });
+console.log('🚀 AI News MCP 服务启动器\n');
+
+// 检查环境变量文件
+if (!existsSync('.env')) {
+  console.log('⚠️  警告: 未找到 .env 文件');
+  console.log('请复制 env.example 到 .env 并配置必要的环境变量\n');
+}
+
+// 检查构建文件
+if (!existsSync('dist/index.js')) {
+  console.log('🔨 正在构建项目...');
+  const buildProcess = spawn('npm', ['run', 'build'], { stdio: 'inherit' });
   
   buildProcess.on('close', (code) => {
     if (code === 0) {
-      console.log('构建完成，启动服务...');
-      startServer();
+      console.log('✅ 构建完成\n');
+      showMenu();
     } else {
-      console.error('构建失败');
+      console.log('❌ 构建失败');
       process.exit(1);
     }
   });
 } else {
-  startServer();
+  showMenu();
 }
 
-function startServer() {
-  const serverProcess = spawn('node', ['dist/index.js'], {
-    stdio: 'inherit',
-    cwd: join(__dirname, '..')
-  });
+function showMenu() {
+  console.log('请选择启动模式:');
+  console.log('1. MCP服务 (标准模式)');
+  console.log('2. HTTP API服务');
+  console.log('3. 开发模式 (MCP)');
+  console.log('4. 开发模式 (HTTP API)');
+  console.log('5. 退出');
   
-  serverProcess.on('close', (code) => {
-    console.log(`服务已停止，退出码: ${code}`);
-  });
-  
-  // 处理进程信号
-  process.on('SIGINT', () => {
-    console.log('正在关闭服务...');
-    serverProcess.kill('SIGINT');
-  });
-  
-  process.on('SIGTERM', () => {
-    console.log('正在关闭服务...');
-    serverProcess.kill('SIGTERM');
+  process.stdin.once('data', (data) => {
+    const choice = data.toString().trim();
+    
+    switch (choice) {
+      case '1':
+        console.log('\n🚀 启动MCP服务...');
+        spawn('npm', ['start'], { stdio: 'inherit' });
+        break;
+      case '2':
+        console.log('\n🌐 启动HTTP API服务...');
+        spawn('npm', ['run', 'server'], { stdio: 'inherit' });
+        break;
+      case '3':
+        console.log('\n🔧 启动开发模式 (MCP)...');
+        spawn('npm', ['run', 'dev'], { stdio: 'inherit' });
+        break;
+      case '4':
+        console.log('\n🔧 启动开发模式 (HTTP API)...');
+        spawn('npm', ['run', 'dev:server'], { stdio: 'inherit' });
+        break;
+      case '5':
+        console.log('👋 再见!');
+        process.exit(0);
+        break;
+      default:
+        console.log('❌ 无效选择，请重新输入');
+        showMenu();
+    }
   });
 } 

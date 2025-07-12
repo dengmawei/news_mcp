@@ -372,5 +372,4 @@ app.use((req, res) => {
   });
 });
 
-// 移除服务器启动代码 - Serverless Function 不需要
 export default app; 
